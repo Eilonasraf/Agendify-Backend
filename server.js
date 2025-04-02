@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const session = require("express-session");
@@ -22,6 +23,59 @@ app.set("trust proxy", 1);
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
+// CORS Configuration
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    methods: "GET, POST, PUT, DELETE, OPTIONS",
+    allowedHeaders: "Content-Type, Authorization",
+    credentials: true,
+  })
+);
+
+// Ensure Preflight Requests Are Handled
+app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
+});
+
+// Import Routes
+const postRouter = require("./routes/posts");
+const repliesRouter = require("./routes/replies");
+const authRouter = require("./routes/authRoute");
+const twitterRouter = require('./routes/twitter');
+const { router: uploadRouter } = require("./routes/uploadRoute");
+
+// Initialize the Server
+const initApp = async () => {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not set");
+  }
+
+  try {
+    await mongoose.connect(process.env.DATABASE_URL);
+    console.log("✅ Connected to Database");
+
+    app.use("/uploads", express.static(path.join(__dirname, "./uploads")));
+
+    app.use("/api/posts", postRouter);
+    app.use("/api/replies", repliesRouter);
+    app.use("/api/auth", authRouter);
+    app.use('/api/twitter', twitterRouter);
+    app.use("/api/uploads", uploadRouter);
+
+    return app;
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error);
+    throw error;
+  }
+
 
 // Setup session middleware
 app.use(
@@ -32,28 +86,6 @@ app.use(
     cookie: { secure: false }, // for HTTP testing
   })
 );
-
-// MongoDB Connection
-mongoose
-  .connect(
-    process.env.MONGO_URI || "mongodb://localhost:27017/restApiAssignment"
-  )
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
-
-// Default route for root
-app.get("/", (req, res) => {
-  res.json({
-    message:
-      "Welcome to the REST API! Use /api/posts, /api/replies, /api/twitter, or /api/auth for data.",
-  });
-});
-
-// Use routes
-app.use("/api/auth", authRoutes);
-app.use("/api/posts", postRoutes);
-app.use("/api/replies", repliesRoutes);
-app.use("/api/twitter", twitterRoutes);
 
 // Import additional modules for OAuth 2.0 PKCE
 const crypto = require("crypto");
@@ -179,8 +211,6 @@ app.get("/auth/twitter/callback", async (req, res) => {
     res.status(500).send("Error during token exchange.");
   }
 });
+  };
 
-// Start the server
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+module.exports = initApp;
