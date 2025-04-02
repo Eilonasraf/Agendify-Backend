@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const repliesController = require('../controllers/repliesController');
-const authMiddleware = require('../middleware/authMiddleware');
+const { authMiddleware } = require("../controllers/authController");
 
 // Replies routes
 router.post('/', repliesController.createreplies); // Create a new reply

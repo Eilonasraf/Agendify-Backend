@@ -161,8 +161,8 @@ const testTweetClassification = async (tweetContent) => {
 };
 
 // Example usage:
-const exampleTweet =
-  "The IDF Arabic-language spokesman has instructed the residents of nearly all of Rafah to evacuate immediately.\n\nThis is the most extensive evacuation order since hostilities resumed earlier this month.#Gaza #Palestine #Rafah #Israel #evacuation #war #conflict https://t.co/OXFxqbuNuk";
-testTweetClassification(exampleTweet);
+//const exampleTweet =
+//  "The IDF Arabic-language spokesman has instructed the residents of nearly all of Rafah to evacuate immediately.\n\nThis is the most extensive evacuation order since hostilities resumed earlier this month.#Gaza #Palestine #Rafah #Israel #evacuation #war #conflict https://t.co/OXFxqbuNuk";
+//testTweetClassification(exampleTweet);
 
 module.exports = { fetchTweets, fetchReplies };
