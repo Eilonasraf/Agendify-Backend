@@ -23,5 +23,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.2",
     "multer": "^1.4.5-lts.2"
+    "express-session": "^1.18.1",
+    "got": "^14.4.7",
+    "twitter-lite": "^1.1.0"
   }
 }
