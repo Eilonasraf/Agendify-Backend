@@ -39,14 +39,20 @@ const getAccessToken = async () => {
 };
 
 // Function to fetch and save tweets (read-only, uses app-only token)
+/**
+ * Fetch and save tweets (can be called as a route or internally).
+ */
 const fetchTweets = async (req, res) => {
-  const { query } = req.query;
   try {
-    const token = await getAccessToken();
+    // 1) get an app‑only bearer token
+    const token = process.env.BEARER_TOKEN;
+
+    // 2) hit Twitter's recent search endpoint
     const response = await axios.get(
       "https://api.twitter.com/2/tweets/search/recent",
       {
         params: {
+          // hard‑coded query
           query:
             '("Israel Gaza" OR #Israel OR #Gaza OR #IsraelUnderAttack OR #GazaWar) lang:en -is:retweet',
           "tweet.fields":
@@ -58,34 +64,48 @@ const fetchTweets = async (req, res) => {
         },
       }
     );
-    console.log("Twitter API Response:", response.data);
 
+    // 3) upsert into Mongo
     const tweets = response.data.data || [];
-    const savedTweets = [];
-    for (let tweet of tweets) {
-      const savedTweet = await Tweet.findOneAndUpdate(
-        { id: tweet.id },
-        {
-          id: tweet.id,
-          text: tweet.text,
-          author_id: tweet.author_id,
-          created_at: new Date(tweet.created_at),
-          conversation_id: tweet.conversation_id,
-        },
-        { upsert: true, new: true }
-      );
-      savedTweets.push(savedTweet);
+    const savedTweets = await Promise.all(
+      tweets.map((t) =>
+        Tweet.findOneAndUpdate(
+          { id: t.id },
+          {
+            id: t.id,
+            text: t.text,
+            author_id: t.author_id,
+            created_at: new Date(t.created_at),
+            conversation_id: t.conversation_id,
+          },
+          { upsert: true, new: true }
+        )
+      )
+    );
+
+    // 4a) if in Express: send JSON
+    if (res && typeof res.json === "function") {
+      return res.json({ tweets: savedTweets });
     }
-    res.json({ tweets: savedTweets });
+
+    // 4b) if called internally: return data
+    return { tweets: savedTweets };
   } catch (error) {
     console.error(
       "Error fetching tweets:",
       error.response?.data || error.message
     );
-    res.status(500).json({
-      error: "Error fetching tweets",
-      details: error.response?.data || error.message,
-    });
+
+    // if in Express: return 500
+    if (res && typeof res.status === "function") {
+      return res.status(500).json({
+        error: "Error fetching tweets",
+        details: error.response?.data || error.message,
+      });
+    }
+
+    // else (internal call) just return an empty list so test() can continue
+    return { tweets: [] };
   }
 };
 
@@ -314,15 +334,39 @@ const test = async () => {
   try {
     console.log("Fetching tweets for testing...");
     const tweets = await fetchTweets();
-    console.log("Fetched tweets for testing:", testJSON);
+    // press any key
+    console.log("Press any key to continue...");
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on("data", () => {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+    });
+    console.log("Fetched tweets for testing:", tweets);
     console.log("Classifying tweets...");
-    const classifiedJSON = await classifyTweetsInJSON(testJSON);
+    const classifiedJSON = await classifyTweetsInJSON(tweets);
     console.log("Classified tweets:", classifiedJSON);
+    // press any key
+    console.log("Press any key to continue...");
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on("data", () => {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+    });
     console.log("Generating response comments...");
     const finalJSON = await generateResponseCommentsForNegativeTweetsBatch(
       classifiedJSON
     );
     console.log("Generated response comments:", finalJSON);
+    // press any key
+    console.log("Press any key to continue...");
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on("data", () => {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+    });
     console.log("Posting replies...");
     await postRepliesFromJSON(finalJSON);
     console.log("Test classification and response comment result:");
