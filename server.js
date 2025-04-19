@@ -38,11 +38,17 @@ app.use(
     resave: false,
     saveUninitialized: true,
     cookie: {
-      secure: true, // requires HTTPS
-      sameSite: "none", // allows cross-site cookies
+      secure: false, // requires HTTPS
+      sameSite: "lax", // allows cross-site cookies
     },
   })
 );
+
+app.use((req, res, next) => {
+  console.log("🔑 Session now:", req.session);
+  next();
+});
+
 
 // Import Routes
 const postRouter = require("./routes/posts");
@@ -111,7 +117,7 @@ const initApp = async () => {
       const params = {
         response_type: "code",
         client_id: process.env.CLIENT_ID, // your Twitter OAuth2 Client ID
-        redirect_uri: "http://localhost:3000/api/auth/twitter/callback",
+        redirect_uri: "http://localhost:3000/api/auth/twitter/callback2",
         scope: "tweet.read tweet.write users.read",
         state: state,
         code_challenge: codeChallenge,
@@ -130,7 +136,7 @@ const initApp = async () => {
      * Handles the redirect from Twitter after user authorization.
      * Exchanges the authorization code for an access token.
      */
-    app.get("/auth/twitter/callback", async (req, res) => {
+    app.get("/api/auth/twitter/callback2", async (req, res) => {
       const { code, state } = req.query;
       console.log("Received callback with code:", code, "and state:", state);
       console.log("Session state:", req.session.state);
@@ -156,7 +162,7 @@ const initApp = async () => {
         code: code,
         grant_type: "authorization_code",
         client_id: process.env.CLIENT_ID,
-        redirect_uri: "http://localhost:3000/api/auth/twitter/callback",
+        redirect_uri: "http://localhost:3000/api/auth/twitter/callback2",
         code_verifier: codeVerifier,
       };
 
