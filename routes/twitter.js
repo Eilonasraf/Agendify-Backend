@@ -24,11 +24,21 @@ router.get("/search/generate", async (req, res) => {
   try {
     const tweetsJSON = await twitter.fetchTweets();
     const classified = await twitter.classifyTweetsInJSON(tweetsJSON);
-    const withComments = await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
+    const withComments =
+      await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
     return res.json(withComments);
   } catch (err) {
     console.error("✍️ generate error:", err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/topics", async (req, res) => {
+  try {
+    const topics = await twitter.generateTrendingTopics();
+    res.json(topics);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -50,7 +60,8 @@ router.get("/test/generateDB", async (req, res) => {
   try {
     const tweetsJSON = await twitter.getSavedTweets();
     const classified = await twitter.classifyTweetsInJSON(tweetsJSON);
-    const withComments = await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
+    const withComments =
+      await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
     return res.json(withComments);
   } catch (err) {
     console.error("generateDB error:", err);
@@ -62,10 +73,13 @@ router.get("/test/postDB", async (req, res) => {
   try {
     const tweetsJSON = await twitter.getSavedTweets();
     const classified = await twitter.classifyTweetsInJSON(tweetsJSON);
-    const withComments = await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
+    const withComments =
+      await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
     await twitter.postRepliesFromJSON(withComments);
     return res.json({
-      message: `Posted ${withComments.tweets.filter((t) => t.responseComment).length} replies.`,
+      message: `Posted ${
+        withComments.tweets.filter((t) => t.responseComment).length
+      } replies.`,
     });
   } catch (err) {
     console.error("postDB error:", err);

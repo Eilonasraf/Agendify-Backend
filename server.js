@@ -49,7 +49,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // Import Routes
 const postRouter = require("./routes/posts");
 const repliesRouter = require("./routes/replies");
@@ -75,131 +74,94 @@ const initApp = async () => {
     app.use("/api/twitter", twitterRouter);
     app.use("/api/uploads", uploadRouter);
 
-    // Import additional modules for OAuth 2.0 PKCE
+    // OAuth2 PKCE helpers
     const querystring = require("querystring");
-
-    /**
-     * Generate a random code verifier.
-     */
     function generateCodeVerifier() {
-      const codeVerifier = crypto.randomBytes(32).toString("hex");
-      console.log("Generated code verifier:", codeVerifier);
-      return codeVerifier;
+      return crypto.randomBytes(32).toString("hex");
     }
-
-    /**
-     * Generate a code challenge from the verifier using SHA256 and Base64URL encoding.
-     */
-    function generateCodeChallenge(verifier) {
+    function generateCodeChallenge(v) {
       return crypto
         .createHash("sha256")
-        .update(verifier)
+        .update(v)
         .digest("base64")
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=+$/, "");
     }
 
-    /**
-     * OAuth2 Login Route
-     * Redirects the user to Twitter’s OAuth 2.0 authorization endpoint.
-     */
+    // 1) Kick off OAuth2 login
     app.get("/auth/twitter", (req, res) => {
-      // Generate a random state and code verifier.
       const state = crypto.randomBytes(8).toString("hex");
-      const codeVerifier = generateCodeVerifier();
-      // Store the verifier and state in the session
-      req.session.codeVerifier = codeVerifier;
+      const verifier = generateCodeVerifier();
+      req.session.codeVerifier = verifier;
       req.session.state = state;
-      const codeChallenge = generateCodeChallenge(codeVerifier);
-
-      // Build the authorization URL with necessary query parameters.
+      const challenge = generateCodeChallenge(verifier);
       const params = {
         response_type: "code",
-        client_id: process.env.CLIENT_ID, // your Twitter OAuth2 Client ID
-        redirect_uri: "http://localhost:3000/api/auth/twitter/callback2",
-        scope: "tweet.read tweet.write users.read",
-        state: state,
-        code_challenge: codeChallenge,
-        code_challenge_method: "S256",
-      };
-
-      const authUrl = `https://twitter.com/i/oauth2/authorize?${querystring.stringify(
-        params
-      )}`;
-      console.log("Redirecting user to:", authUrl);
-      res.redirect(authUrl);
-    });
-
-    /**
-     * OAuth2 Callback Route
-     * Handles the redirect from Twitter after user authorization.
-     * Exchanges the authorization code for an access token.
-     */
-    app.get("/api/auth/twitter/callback2", async (req, res) => {
-      const { code, state } = req.query;
-      console.log("Received callback with code:", code, "and state:", state);
-      console.log("Session state:", req.session.state);
-      console.log("Session codeVerifier:", req.session.codeVerifier);
-
-      if (
-        !code ||
-        !state ||
-        req.session.state !== state ||
-        !req.session.codeVerifier
-      ) {
-        return res
-          .status(400)
-          .send("Missing or invalid code, state, or code verifier.");
-      }
-
-      const codeVerifier = req.session.codeVerifier;
-      // Clear these values from the session after use.
-      req.session.codeVerifier = null;
-      req.session.state = null;
-
-      const tokenParams = {
-        code: code,
-        grant_type: "authorization_code",
         client_id: process.env.CLIENT_ID,
         redirect_uri: "http://localhost:3000/api/auth/twitter/callback2",
-        code_verifier: codeVerifier,
+        scope: "tweet.read tweet.write users.read",
+        state,
+        code_challenge: challenge,
+        code_challenge_method: "S256",
       };
+      const url =
+        "https://twitter.com/i/oauth2/authorize?" +
+        querystring.stringify(params);
+      res.redirect(url);
+    });
+
+    // 2) OAuth2 callback — exchange code for tokens
+    app.get("/api/auth/twitter/callback2", async (req, res) => {
+      const { code, state } = req.query;
+      if (!code || state !== req.session.state || !req.session.codeVerifier) {
+        return res.status(400).send("Invalid OAuth callback.");
+      }
+      const verifier = req.session.codeVerifier;
+      req.session.state = null;
+      req.session.codeVerifier = null;
 
       try {
-        const tokenResponse = await axios.post(
+        const resp = await axios.post(
           "https://api.twitter.com/2/oauth2/token",
-          querystring.stringify(tokenParams),
+          querystring.stringify({
+            grant_type: "authorization_code",
+            code,
+            client_id: process.env.CLIENT_ID,
+            redirect_uri: "http://localhost:3000/api/auth/twitter/callback2",
+            code_verifier: verifier,
+          }),
           {
             headers: {
               "Content-Type": "application/x-www-form-urlencoded",
-              Authorization: `Basic ${Buffer.from(
-                `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
-              ).toString("base64")}`,
+              Authorization:
+                "Basic " +
+                Buffer.from(
+                  `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
+                ).toString("base64"),
             },
           }
         );
-        const userAccessToken = tokenResponse.data.access_token;
-        console.log("Obtained user access token:", userAccessToken);
-        // Store the token automatically for later use:
-        tokenStore.setUserAccessToken(userAccessToken);
+
+        const { access_token, refresh_token } = resp.data;
+        tokenStore.setUserTokens({
+          accessToken: access_token,
+          refreshToken: refresh_token,
+        });
+
         res.send(
-          `<h1>Authentication Successful!</h1>
-         <p>Your access token has been stored automatically.</p>`
+          `<h1>Twitter Connected!</h1><p>You can now close this window and start promoting.</p>`
         );
-      } catch (error) {
-        console.error(
-          "Error exchanging code for token:",
-          error.response?.data || error.message
-        );
-        res.status(500).send("Error during token exchange.");
+      } catch (e) {
+        console.error("Error exchanging token:", e.response?.data || e);
+        res.status(500).send("OAuth token exchange failed.");
       }
     });
 
     return app;
-  } catch (error) {
-    console.error("❌ MongoDB connection error:", error);
-    throw error;
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
+    throw err;
   }
 };
 

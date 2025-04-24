@@ -1,26 +1,40 @@
+// controllers/tokenStore.js
 const fs = require("fs");
 const path = require("path");
-const tokenPath = path.join(__dirname, "user_token.txt");
 
+const tokenPath = path.join(__dirname, "user_token.txt");
 let userAccessToken = null;
 
-const loadTokenFromFile = () => {
+// Load token from disk on startup
+(function loadTokenFromFile() {
   if (fs.existsSync(tokenPath)) {
-    userAccessToken = fs.readFileSync(tokenPath, "utf-8").trim();
+    try {
+      userAccessToken = fs.readFileSync(tokenPath, "utf-8").trim();
+      console.log("→ [tokenStore] Loaded access token");
+    } catch (err) {
+      console.error("→ [tokenStore] Failed to load access token:", err);
+    }
   }
-};
+})();
 
-const saveTokenToFile = (token) => {
-  fs.writeFileSync(tokenPath, token, "utf-8");
-};
-
-loadTokenFromFile(); // Load token on startup
+// Save token to disk
+function saveTokenToFile(token) {
+  try {
+    fs.writeFileSync(tokenPath, token, "utf-8");
+    console.log("→ [tokenStore] Saved access token");
+  } catch (err) {
+    console.error("→ [tokenStore] Failed to save access token:", err);
+  }
+}
 
 module.exports = {
-  getUserAccessToken: () => userAccessToken,
+  getUserAccessToken: () => {
+    console.log("→ [tokenStore] getUserAccessToken() →", userAccessToken);
+    return userAccessToken;
+  },
   setUserAccessToken: (token) => {
     userAccessToken = token;
     saveTokenToFile(token);
-    console.log("✅ Stored user access token:", token);
+    console.log("✅ [tokenStore] Stored user access token");
   },
 };
