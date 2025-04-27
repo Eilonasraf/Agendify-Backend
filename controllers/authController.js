@@ -35,7 +35,21 @@ const register = async (req, res) => {
       refreshTokens: [],
     });
 
-    res.status(201).json({ message: "User registered successfully", user: newUser });
+    const apiBaseUrl = process.env.DOMAIN_BASE?.trim().replace(/\/$/, "") || "http://localhost:3000";
+
+    let profilePictureUrl = "/uploads/default-avatar.png";
+    if (user.profilePicture) {
+      profilePictureUrl = user.profilePicture.startsWith("/uploads/")
+        ? `${apiBaseUrl}${user.profilePicture}`
+        : user.profilePicture;
+    }    
+
+    res.status(201).json({
+      username: newUser.username,
+      email: newUser.email,
+      _id: newUser._id,
+      profilePicture: profilePictureUrl,
+    });
   } catch (error) {
     console.error("❌ Error registering user:", error);
     res.status(500).json({ message: "Error registering user" });
@@ -88,14 +102,14 @@ const login = async (req, res) => {
     user.refreshTokens.push(refreshToken);
     await user.save();
 
-    const apiBaseUrl = process.env.DOMAIN_BASE?.trim().replace(/\/$/, "");
-    let profilePictureUrl = "/default-avatar.png";
+    const apiBaseUrl = process.env.DOMAIN_BASE?.trim().replace(/\/$/, "") || "http://localhost:3000";
 
+    let profilePictureUrl = "/uploads/default-avatar.png";
     if (user.profilePicture) {
       profilePictureUrl = user.profilePicture.startsWith("/uploads/")
         ? `${apiBaseUrl}${user.profilePicture}`
         : user.profilePicture;
-    }
+    }    
 
     res.status(200).json({
       username: user.username,
