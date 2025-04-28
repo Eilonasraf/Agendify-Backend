@@ -159,13 +159,13 @@ const promote = async (req, res) => {
     //     },
     //   ],
     // };
-    await twitter.postRepliesFromJSON(withComments, createdBy);
+
 
     // 7) send back result
     console.log("🌟 --- Promote Workflow End ---\n");
     return res.json({
       message: `Fetched, commented on, and replied to ${withComments.tweets.length} tweets.`,
-      tweets: withComments.tweets,
+      tweets: withComments,
     });
   } catch (err) {
     console.error("🚨 Promote error:", err.message);
@@ -181,6 +181,8 @@ const promote = async (req, res) => {
     // Fallback for other errors
     return res.status(500).json({ error: err.message });
   }
+  
 };
+
 
 module.exports = { promote };

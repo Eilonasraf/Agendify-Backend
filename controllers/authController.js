@@ -37,12 +37,14 @@ const register = async (req, res) => {
 
     const apiBaseUrl = process.env.DOMAIN_BASE?.trim().replace(/\/$/, "") || "http://localhost:3000";
 
+    /*
     let profilePictureUrl = "/uploads/default-avatar.png";
-    if (user.profilePicture) {
+    if (newUser.profilePicture) { //changed to newUser from user
       profilePictureUrl = user.profilePicture.startsWith("/uploads/")
         ? `${apiBaseUrl}${user.profilePicture}`
         : user.profilePicture;
-    }    
+    } 
+    */   
 
     res.status(201).json({
       username: newUser.username,

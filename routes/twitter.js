@@ -3,10 +3,26 @@ const express = require("express");
 const router = express.Router();
 const twitter = require("../controllers/twitterController");
 const authController = require("../controllers/authController");
-const promoteController = require("../controllers/promoteController"); // <<< חדש
+const promoteController = require("../controllers/promoteController"); 
+
+router.post("/postToX", async (req, res) => {
+  try {
+    const { tweets, twitterUserId } = req.body;
+    if (!Array.isArray(tweets) || !twitterUserId) {
+      return res.status(400).json({ error: "Must include tweets array and twitterUserId" });
+    }
+    // Call the original, feeding it the shape it expects:
+    await twitter.postRepliesFromJSON({ tweets }, twitterUserId);
+    res.json({ message: `All ${tweets.length} replies posted.` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+});
+
 
 router.get("/login", authController.login);
-router.post("/promote", promoteController.promote);
+router.post("/promote", promoteController.promote); 
 router.get("/search/tweets", twitter.fetchTweets);
 
 router.get("/search/classify", async (req, res) => {
