@@ -1,106 +1,20 @@
 // routes/twitter.js
 const express = require("express");
-const router = express.Router();
+const router  = express.Router();
 const twitter = require("../controllers/twitterController");
+const promote = require("../controllers/promoteController");
 const authController = require("../controllers/authController");
-const promoteController = require("../controllers/promoteController"); 
-
-router.post("/postToX", async (req, res) => {
-  try {
-    const { tweets, twitterUserId } = req.body;
-    if (!Array.isArray(tweets) || !twitterUserId) {
-      return res.status(400).json({ error: "Must include tweets array and twitterUserId" });
-    }
-    // Call the original, feeding it the shape it expects:
-    await twitter.postRepliesFromJSON({ tweets }, twitterUserId);
-    res.json({ message: `All ${tweets.length} replies posted.` });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || "Server error" });
-  }
-});
-
 
 router.get("/login", authController.login);
-router.post("/promote", promoteController.promote); 
+
+// legacy / search
 router.get("/search/tweets", twitter.fetchTweets);
 
-router.get("/search/classify", async (req, res) => {
-  try {
-    const tweetsJSON = await twitter.fetchTweets();
-    const classifiedJSON = await twitter.classifyTweetsInJSON(tweetsJSON);
-    return res.json(classifiedJSON);
-  } catch (err) {
-    console.error("🔍 classify error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
+// Promote (append new replies) into an existing cluster
+router.post("/promote", promote.promote);
 
-router.get("/search/generate", async (req, res) => {
-  try {
-    const tweetsJSON = await twitter.fetchTweets();
-    const classified = await twitter.classifyTweetsInJSON(tweetsJSON);
-    const withComments =
-      await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
-    return res.json(withComments);
-  } catch (err) {
-    console.error("✍️ generate error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
+// POST replies into an existing cluster
+router.post("/postToX", promote.postToXHandler);
 
-router.get("/topics", async (req, res) => {
-  try {
-    const topics = await twitter.generateTrendingTopics();
-    res.json(topics);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ──────────────────────────────────────────────────────
-// ▶ TESTS from Mongo only
-// ──────────────────────────────────────────────────────
-router.get("/test/classifyDB", async (req, res) => {
-  try {
-    const tweetsJSON = await twitter.getSavedTweets();
-    const classified = await twitter.classifyTweetsInJSON(tweetsJSON);
-    return res.json(classified);
-  } catch (err) {
-    console.error("classifyDB error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-router.get("/test/generateDB", async (req, res) => {
-  try {
-    const tweetsJSON = await twitter.getSavedTweets();
-    const classified = await twitter.classifyTweetsInJSON(tweetsJSON);
-    const withComments =
-      await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
-    return res.json(withComments);
-  } catch (err) {
-    console.error("generateDB error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-router.get("/test/postDB", async (req, res) => {
-  try {
-    const tweetsJSON = await twitter.getSavedTweets();
-    const classified = await twitter.classifyTweetsInJSON(tweetsJSON);
-    const withComments =
-      await twitter.generateResponseCommentsForNegativeTweetsBatch(classified);
-    await twitter.postRepliesFromJSON(withComments);
-    return res.json({
-      message: `Posted ${
-        withComments.tweets.filter((t) => t.responseComment).length
-      } replies.`,
-    });
-  } catch (err) {
-    console.error("postDB error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
 
 module.exports = router;

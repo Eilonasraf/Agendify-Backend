@@ -37,6 +37,7 @@ function logRateLimits(headers) {
 /**
  * Fetches up to `count` tweets matching an AI‑generated query that opposes or supports the user's stance.
  */
+
 const fetchTweets = async (count = 10, options = {}) => {
   console.log("→ fetchTweets received options:", options);
   console.log("→ Bearer token in use:", process.env.BEARER_TOKEN);
@@ -316,7 +317,6 @@ Return only valid JSON.
   console.log("→ Flattened topics JSON:", flatMap);
   return flatMap;
 };
-
 
 module.exports = {
   fetchTweets,

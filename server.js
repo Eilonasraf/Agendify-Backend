@@ -50,10 +50,9 @@ app.use((req, res, next) => {
 });
 
 // Import Routes
-const postRouter = require("./routes/posts");
-const repliesRouter = require("./routes/replies");
 const authRouter = require("./routes/authRoute");
 const twitterRouter = require("./routes/twitter");
+const dashboardRouter = require("./routes/dashboard");
 const { router: uploadRouter } = require("./routes/uploadRoute");
 
 // Initialize the Server
@@ -68,11 +67,25 @@ const initApp = async () => {
 
     app.use("/uploads", express.static(path.join(__dirname, "./uploads")));
 
-    app.use("/api/posts", postRouter);
-    app.use("/api/replies", repliesRouter);
     app.use("/api/auth", authRouter);
     app.use("/api/twitter", twitterRouter);
     app.use("/api/uploads", uploadRouter);
+    app.use("/api/clusters", dashboardRouter);
+
+    // cron using the update function - Twice a day
+    /*const cron = require("node-cron");
+    const { updateAllReplyMetrics } = require("./cron");
+
+    // Run at 12:00 and 23:59 every day:
+    cron.schedule("0 12 * * *", () => {
+      console.log("🕛 Mid-day metrics update");
+      updateAllReplyMetrics().catch(console.error);
+    });
+    cron.schedule("59 23 * * *", () => {
+      console.log("🕛 End-of-day metrics update");
+      updateAllReplyMetrics().catch(console.error);
+    });
+    */
 
     // OAuth2 PKCE helpers
     const querystring = require("querystring");
