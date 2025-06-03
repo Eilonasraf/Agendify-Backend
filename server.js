@@ -8,6 +8,23 @@ const axios = require("axios");
 const crypto = require("crypto");
 require("dotenv").config();
 
+// Schedule engagement update script to run at 13:30 and 20:00 daily
+const cron = require('node-cron');
+const { exec } = require('child_process');
+
+process.env.TZ = 'Asia/Jerusalem';
+
+cron.schedule('30 13,20 * * *', () => {
+  console.log('🕒 Running engagement update script (13:30 or 20:00)');
+  exec('node ./scripts/update_engagement_metrics.js', (err, stdout, stderr) => {
+    if (err) {
+      console.error('❌ Script error:', err.message);
+    } else {
+      console.log(stdout);
+    }
+  });
+});
+
 // Initialize Express app
 const app = express();
 const port = process.env.PORT || 3000;
@@ -52,8 +69,10 @@ app.use((req, res, next) => {
 // Import Routes
 const authRouter = require("./routes/authRoute");
 const twitterRouter = require("./routes/twitter");
-const dashboardRouter = require("./routes/dashboard");
+const agendasRouter = require("./routes/agendas");
 const { router: uploadRouter } = require("./routes/uploadRoute");
+const agendaInstance = require("./agenda/agendaInstance");
+const loadJobs = require("./agenda/loadJobs");
 
 // Initialize the Server
 const initApp = async () => {
@@ -62,7 +81,11 @@ const initApp = async () => {
   }
 
   try {
-    await mongoose.connect(process.env.DATABASE_URL);
+    await mongoose.connect(process.env.DATABASE_URL,
+      {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
     console.log("✅ Connected to Database");
 
     app.use("/uploads", express.static(path.join(__dirname, "./uploads")));
@@ -70,23 +93,9 @@ const initApp = async () => {
     app.use("/api/auth", authRouter);
     app.use("/api/twitter", twitterRouter);
     app.use("/api/uploads", uploadRouter);
-    app.use("/api/clusters", dashboardRouter);
+    app.use("/api/agendas", agendasRouter);
 
-    // cron using the update function - Twice a day
-    /*const cron = require("node-cron");
-    const { updateAllReplyMetrics } = require("./cron");
-
-    // Run at 12:00 and 23:59 every day:
-    cron.schedule("0 12 * * *", () => {
-      console.log("🕛 Mid-day metrics update");
-      updateAllReplyMetrics().catch(console.error);
-    });
-    cron.schedule("59 23 * * *", () => {
-      console.log("🕛 End-of-day metrics update");
-      updateAllReplyMetrics().catch(console.error);
-    });
-    */
-
+    
     // OAuth2 PKCE helpers
     const querystring = require("querystring");
     function generateCodeVerifier() {
@@ -165,11 +174,16 @@ const initApp = async () => {
         res.send(
           `<h1>Twitter Connected!</h1><p>You can now close this window and start promoting.</p>`
         );
+
       } catch (e) {
         console.error("Error exchanging token:", e.response?.data || e);
         res.status(500).send("OAuth token exchange failed.");
       }
     });
+
+    loadJobs(agendaInstance);
+    await agendaInstance.start();
+    console.log("🕐 Agenda started");
 
     return app;
   } catch (err) {
@@ -177,5 +191,6 @@ const initApp = async () => {
     throw err;
   }
 };
+
 
 module.exports = initApp;

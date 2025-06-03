@@ -1,18 +1,18 @@
 // routes/dashboard.js
 const express = require("express");
 const router  = express.Router();
-const dc      = require("../controllers/dashboardController");
+const ac = require("../controllers/agendaController");
 
 // list all clusters for a user
-router.get("/",   dc.listClusters);
+router.get("/",   ac.listAgendas);
 
 // fetch one cluster’s full detail
-router.get("/:clusterId", dc.getClusterDetail);
+router.get("/:agendaId", ac.getAgendaDetail);
 
 // create a brand-new cluster
-router.post("/",  dc.createCluster);
+router.post("/",  ac.createAgenda);
 
 // delete a cluster
-router.delete("/:clusterId", dc.deleteCluster);
+router.delete("/:agendaId", ac.deleteAgenda);
 
 module.exports = router;

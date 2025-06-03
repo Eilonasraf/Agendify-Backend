@@ -1,8 +1,8 @@
 // controllers/dashboardController.js
 const Agenda = require("../models/Agenda");
 
-// GET /api/clusters?userId=…
-exports.listClusters = async (req, res) => {
+// GET /api/agendas?userId=…
+exports.listAgendas = async (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: "userId required" });
 
@@ -21,22 +21,22 @@ exports.listClusters = async (req, res) => {
   );
 };
 
-// GET /api/clusters/:clusterId
-exports.getClusterDetail = async (req, res) => {
-  const { clusterId } = req.params;
-  const cluster = await Agenda.findById(clusterId).lean();
-  if (!cluster) return res.status(404).json({ error: "not found" });
-  return res.json(cluster);
+// GET /api/agendas/:agendaId
+exports.getAgendaDetail = async (req, res) => {
+  const { agendaId } = req.params;
+  const agenda = await Agenda.findById(agendaId).lean();
+  if (!agenda) return res.status(404).json({ error: "not found" });
+  return res.json(agenda);
 };
 
-// POST /api/clusters
-exports.createCluster = async (req, res) => {
+// POST /api/agendas
+exports.createAgenda = async (req, res) => {
   const { userId, topic } = req.body;
   if (!userId || !topic) {
     return res.status(400).json({ error: "userId and topic required" });
   }
   try {
-    const cluster = await Agenda.create({
+    const agenda = await Agenda.create({
       title:     topic,
       prompt:    topic,       // ← seed the prompt right away
       createdBy: userId,
@@ -45,29 +45,29 @@ exports.createCluster = async (req, res) => {
       updatedAt: new Date(),
     });
     return res.status(201).json({
-      clusterId: cluster._id,
-      title:     cluster.title,
+      agendaId: agenda._id,
+      title:     agenda.title,
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "cluster creation failed" });
+    return res.status(500).json({ error: "agenda creation failed" });
   }
 };
 
 /**
- * DELETE /api/clusters/:clusterId
- * Deletes one cluster by ID
+ * DELETE /api/agendas/:agendaId
+ * Deletes one agenda by ID
  */
-exports.deleteCluster = async (req, res) => {
+exports.deleteAgenda = async (req, res) => {
     try {
-      const { clusterId } = req.params;
-      const deleted = await Agenda.findByIdAndDelete(clusterId);
+      const { agendaId } = req.params;
+      const deleted = await Agenda.findByIdAndDelete(agendaId);
       if (!deleted) {
-        return res.status(404).json({ error: "Cluster not found" });
+        return res.status(404).json({ error: "agenda not found" });
       }
-      return res.json({ message: "Cluster deleted." });
+      return res.json({ message: "agenda deleted." });
     } catch (err) {
-      console.error("❌ deleteCluster error:", err);
+      console.error("❌ delete agenda error:", err);
       return res.status(500).json({ error: "Server error" });
     }
   };
