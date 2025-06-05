@@ -1,4 +1,4 @@
-// controllers/dashboardController.js
+// controllers/agendaController.js
 const Agenda = require("../models/Agenda");
 
 // GET /api/agendas?userId=…
