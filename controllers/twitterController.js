@@ -147,25 +147,35 @@ const generateResponseCommentsForNegativeTweetsBatch = async (
     return tweetsJSON;
   }
 
+  // New prompt: concise (≤1.5 sentences), human tone, no markdown
   const prompt = `
-You are an AI that writes persuasive responses supporting the user's stance.
+You are an AI that writes concise, persuasive responses supporting the user's stance.
 Topic: ${topic}
 User stance: ${stance}
 Subtopics: ${subtopics.join(", ") || "none"}.
-Write each reply in a bold, human-like tone—no robotic phrasing.
+For each tweet below, write at most one and a half sentences in a natural, human-like tone without any markdown or asterisks.
 Here are the tweets that disagree:
 ${JSON.stringify(negative.map((t) => ({ id: t.id, text: t.text })))}
 Output only valid JSON mapping each id to its suggested reply.
   `.trim();
 
   const responseText = await generateGeminiDescription(prompt);
+  // Strip any code fences and pull out the JSON object
   const raw = responseText.replace(/^```json\s*/, "").replace(/```$/, "").trim();
   const match = raw.match(/^{[\s\S]*}$/m);
   if (!match) throw new Error("AI returned non-JSON replies");
   const commentsMap = JSON.parse(match[0]);
 
+  // Assign and sanitize: remove any stray asterisks
   tweetsJSON.tweets.forEach((t) => {
-    t.responseComment = t.classification === -1 ? commentsMap[t.id] || null : null;
+    if (t.classification === -1) {
+      const reply = commentsMap[t.id] || null;
+      t.responseComment = reply
+        ? reply.replace(/\*+/g, "").trim()
+        : null;
+    } else {
+      t.responseComment = null;
+    }
   });
 
   return tweetsJSON;
