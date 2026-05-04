@@ -192,9 +192,3 @@ npm start
 ```
 
 The server starts on `http://localhost:3000`. Agenda job processing and the cron-based engagement updater (runs at 13:30 and 20:00 Israel time) start automatically.
-
----
-
-## Deployment
-
-Deployed on [Railway](https://railway.app). Set all environment variables in the Railway dashboard and connect your GitHub repo for automatic deploys on push to `main`.
