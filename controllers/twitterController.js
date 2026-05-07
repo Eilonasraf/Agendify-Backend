@@ -148,15 +148,20 @@ const generateResponseCommentsForNegativeTweetsBatch = async (
   }
 
   // New prompt: concise (≤1.5 sentences), human tone, no markdown
+
   const prompt = `
-You are an AI that writes concise, persuasive responses supporting the user's stance.
-Topic: ${topic}
-User stance: ${stance}
-Subtopics: ${subtopics.join(", ") || "none"}.
-For each tweet below, write at most one and a half sentences in a natural, human-like tone without any markdown or asterisks.
-Here are the tweets that disagree:
-${JSON.stringify(negative.map((t) => ({ id: t.id, text: t.text })))}
-Output only valid JSON mapping each id to its suggested reply.
+  You are an AI that writes concise, persuasive responses supporting the user's stance.
+  Topic: ${topic}
+  User stance: ${stance}
+  Subtopics: ${subtopics.join(", ") || "none"}.
+
+  Below are tweets that disagree with the user's stance. For each, generate a short reply (1 to 1.5 sentences max), written in a natural human tone.
+
+  💡 Output only valid **pure JSON**, no commentary, no code blocks, no explanation.
+  💡 Format: {"<id>": "<reply>", ...}
+
+  Tweets:
+  ${JSON.stringify(negative.map((t) => ({ id: t.id, text: t.text })))}
   `.trim();
 
   const responseText = await generateGeminiDescription(prompt);
@@ -164,7 +169,14 @@ Output only valid JSON mapping each id to its suggested reply.
   const raw = responseText.replace(/^```json\s*/, "").replace(/```$/, "").trim();
   const match = raw.match(/^{[\s\S]*}$/m);
   if (!match) throw new Error("AI returned non-JSON replies");
-  const commentsMap = JSON.parse(match[0]);
+  let commentsMap = {};
+  try {
+    commentsMap = JSON.parse(match?.[0] || "");
+  } catch (err) {
+    console.error("❌ JSON parse error:", err.message);
+    console.error("🧪 Raw AI output:", raw.slice(0, 1000)); // limit output
+    throw new Error("Invalid JSON from Gemini");
+  }
 
   // Assign and sanitize: remove any stray asterisks
   tweetsJSON.tweets.forEach((t) => {
@@ -173,7 +185,7 @@ Output only valid JSON mapping each id to its suggested reply.
       t.responseComment = reply
         ? reply.replace(/\*+/g, "").trim()
         : null;
-    } else {
+    } else {  
       t.responseComment = null;
     }
   });
@@ -199,6 +211,7 @@ async function postReplyToTweet(tweetId, replyText, creds) {
   const request_data = { url, method: "POST" };
   const oauth_headers = oauth.toHeader(oauth.authorize(request_data, access));
 
+  try {
   const resp = await axios.post(url, body, {
     headers: {
       ...oauth_headers,
@@ -206,8 +219,33 @@ async function postReplyToTweet(tweetId, replyText, creds) {
     },
   });
 
+  // Log rate limit info after POST
+    const headers = resp.headers;
+    console.log("📊 POST /tweets Rate Limit Info:");
+    console.log("x-rate-limit-limit:", headers["x-rate-limit-limit"]);
+    console.log("x-rate-limit-remaining:", headers["x-rate-limit-remaining"]);
+    console.log(
+      "x-rate-limit-reset:",
+      new Date(parseInt(headers["x-rate-limit-reset"], 10) * 1000).toLocaleString()
+    );
+
   console.log("→ Tweet created:", resp.data.data.id);
   return resp.data.data;
+
+  } catch (err) {
+    const headers = err.response?.headers || {};
+    console.warn("❌ POST /tweets failed. Rate info (if present):");
+    console.warn("x-rate-limit-limit:", headers["x-rate-limit-limit"]);
+    console.warn("x-rate-limit-remaining:", headers["x-rate-limit-remaining"]);
+    console.warn(
+      "x-rate-limit-reset:",
+      headers["x-rate-limit-reset"]
+        ? new Date(parseInt(headers["x-rate-limit-reset"], 10) * 1000).toLocaleString()
+        : "N/A"
+    );
+
+    throw err;
+  }
 }
 
 /**
